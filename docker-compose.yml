@@ -1,0 +1,57 @@
+# Docker Mail Notifier – in Portainer als Stack einfügen (Stacks → Add stack).
+# Alle Einstellungen (SMTP, Empfänger, Ereignisse) erfolgen danach im Webinterface.
+
+services:
+  notifier:
+    image: ghcr.io/flowoy96/docker-mail-notifier:latest
+    container_name: docker-mail-notifier
+    restart: unless-stopped
+    depends_on:
+      - socket-proxy
+    environment:
+      DOCKER_HOST: tcp://socket-proxy:2375
+      TZ: ${TZ:-Europe/Berlin}
+      # Schlüssel für das verschlüsselt gespeicherte SMTP-Passwort (empfohlen, beliebige lange Zeichenkette).
+      SECRET_KEY: ${SECRET_KEY:-}
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - data:/data
+    networks:
+      - default
+      - docker-api
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  # Gibt dem Notifier nur lesenden Zugriff auf Container und Ereignisse –
+  # der Docker-Socket selbst bleibt dem Webinterface verborgen.
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: docker-mail-notifier-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: "1"
+      EVENTS: "1"
+      VERSION: "1"
+      PING: "1"
+      POST: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - docker-api
+    read_only: true
+    tmpfs:
+      - /run
+      - /tmp
+
+volumes:
+  data:
+
+networks:
+  docker-api:
+    internal: true
