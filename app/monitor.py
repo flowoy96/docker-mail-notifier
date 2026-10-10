@@ -8,6 +8,8 @@ daraus abgeleitet, *warum* etwas passiert ist:
 * ``start`` kurz nach einem Absturz bei
   gesetzter Restart-Richtlinie          -> automatischer Neustart
 * ``kill, die, start, restart``         -> ein einziger manueller Neustart
+* gestoppt und gleich darauf ein neuer
+  Container mit demselben Namen         -> neu erstellt (Redeploy eines Stacks)
 """
 from __future__ import annotations
 
@@ -41,6 +43,7 @@ class Monitor:
     KILL_WINDOW = 90.0  # so lange gilt ein "die" nach einem "kill" als gewollt
     OOM_WINDOW = 30.0
     AUTO_RESTART_WINDOW = 180.0
+    RECREATE_WINDOW = 120.0  # so lange gilt ein gleichnamiger neuer Container als Ersatz
     STOP_DELAY = 6.0  # Wartezeit, ob auf ein Stoppen ein Start folgt (= Neustart)
     START_DELAY = 3.0
 
@@ -55,6 +58,7 @@ class Monitor:
         self._kills: dict[str, float] = {}
         self._ooms: dict[str, float] = {}
         self._dies: dict[str, tuple[float, str]] = {}
+        self._stopped: dict[str, tuple[float, str, str]] = {}  # Name -> (Zeit, ID, Image)
         self._unhealthy: set[str] = set()
         self._pending: dict[str, dict] = {}
         self._throttle: dict[tuple[str, str], float] = {}
@@ -164,6 +168,9 @@ class Monitor:
         if killed_at is not None and event.ts - killed_at <= self.KILL_WINDOW:
             # Gewollt beendet. Kurz warten: folgt gleich ein Start, war es ein Neustart.
             self._dies[event.id] = (event.ts, "stop")
+            self._stopped = {name: old for name, old in self._stopped.items()
+                             if event.ts - old[0] <= self.RECREATE_WINDOW}
+            self._stopped[event.name] = (event.ts, event.id, event.image)
             self._cancel_pending(event.id)
             self._pending[event.id] = {"stop": (event, code), "start": None, "timer": None}
             self._schedule_flush(event.id, self.STOP_DELAY)
@@ -176,10 +183,21 @@ class Monitor:
             await self.emit("crash", event, exit_code=code, merged=after_oom)
 
     async def _on_start(self, event: ContainerEvent) -> None:
+        replaced = self._stopped.pop(event.name, None)
         pending = self._pending.get(event.id)
         if pending and pending["start"] is None:
             pending["start"] = event
             self._schedule_flush(event.id, self.START_DELAY)
+            return
+
+        # Compose/Portainer ersetzen beim Redeploy den Container: der alte wird gestoppt
+        # und gelöscht, ein neuer mit gleichem Namen (aber anderer ID) gestartet.
+        if replaced and replaced[1] != event.id and event.ts - replaced[0] <= self.RECREATE_WINDOW:
+            self._cancel_pending(replaced[1])  # das Stoppen des alten nicht extra melden
+            self._dies.pop(replaced[1], None)
+            changed = replaced[2] and event.image and replaced[2] != event.image
+            await self.emit("recreate", event,
+                            detail=f"Image: {replaced[2]} → {event.image}" if changed else "")
             return
 
         died = self._dies.pop(event.id, None)

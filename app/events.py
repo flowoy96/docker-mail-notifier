@@ -35,6 +35,14 @@ EVENT_TYPES: dict[str, dict] = {
         "color": "#007aff",
         "default": True,
     },
+    "recreate": {
+        "label": "Neu erstellt",
+        "hint": "Container wurde durch einen neuen ersetzt, z. B. beim Redeploy eines Stacks",
+        "text": "Der Container wurde entfernt und neu erstellt – zum Beispiel durch ein Stack-Update oder Redeploy.",
+        "emoji": "🔵",
+        "color": "#5856d6",
+        "default": True,
+    },
     "unhealthy": {
         "label": "Healthcheck fehlgeschlagen",
         "hint": "Container meldet den Status „unhealthy“",
@@ -64,7 +72,7 @@ EVENT_TYPES: dict[str, dict] = {
         "hint": "Container hat sich selbst mit Exit-Code 0 beendet",
         "text": "Der Container hat sich regulär beendet (Exit-Code 0).",
         "emoji": "⚪",
-        "color": "#5856d6",
+        "color": "#8e8e93",
         "default": False,
     },
     "start": {

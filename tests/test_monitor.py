@@ -57,11 +57,11 @@ class MonitorTest(unittest.IsolatedAsyncioTestCase):
         self.db.close()
         self.tmp.cleanup()
 
-    async def send(self, action, seconds=1.0, **attrs):
+    async def send(self, action, seconds=1.0, cid=CID, **attrs):
         self.clock += int(seconds * 10**9)
         await self.monitor.handle({
             "Type": "container", "Action": action, "timeNano": self.clock,
-            "Actor": {"ID": CID, "Attributes": {"name": "web", "image": "nginx", **attrs}},
+            "Actor": {"ID": cid, "Attributes": {"name": "web", "image": "nginx", **attrs}},
         })
 
     def rows(self):
@@ -107,6 +107,33 @@ class MonitorTest(unittest.IsolatedAsyncioTestCase):
         await self.send("start")
         await asyncio.sleep(0.3)
         self.assertEqual(self.rows(), [("stop", "disabled"), ("start", "disabled")])
+
+    async def test_redeploy_replaces_container(self):
+        # Reihenfolge wie bei "docker compose up" mit geänderter Konfiguration
+        new = "n" * 64
+        await self.send("create", cid=new, name="cccccccccccc_web")
+        await self.send("kill", 0.01, signal="15")
+        await self.send("die", exitCode="137")
+        await self.send("destroy", 0.01)
+        await self.send("rename", 0.01, cid=new)
+        await self.send("start", 0.05, cid=new, image="nginx:1.29")
+        await asyncio.sleep(0.3)
+        self.assertEqual(self.rows(), [("recreate", "pending")])
+        event = self.db.one("SELECT * FROM events")
+        self.assertEqual(event["container_id"], new)
+        self.assertIn("nginx → nginx:1.29", event["detail"])
+
+    async def test_new_container_long_after_stop_is_plain_start(self):
+        await self.send("kill", signal="15")
+        await self.send("die", exitCode="0")
+        await asyncio.sleep(0.3)
+        await self.send("start", 600, cid="n" * 64)
+        self.assertEqual(self.rows(), [("stop", "disabled"), ("start", "disabled")])
+
+    async def test_new_container_after_crash_is_not_a_redeploy(self):
+        await self.send("die", exitCode="1")
+        await self.send("start", cid="n" * 64)
+        self.assertEqual(self.rows(), [("crash", "pending"), ("start", "disabled")])
 
     async def test_harmless_signal_does_not_hide_crash(self):
         await self.send("kill", signal="1")

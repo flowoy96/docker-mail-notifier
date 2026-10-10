@@ -84,17 +84,18 @@
     oom: ['chip', 'purple'],
     auto_restart: ['restart', 'orange'],
     restart: ['restart', 'blue'],
+    recreate: ['box', 'indigo'],
     unhealthy: ['pulse', 'pink'],
     healthy: ['heart', 'green'],
     stop: ['stop', 'gray'],
-    exit: ['check', 'indigo'],
+    exit: ['check', 'gray'],
     start: ['play', 'teal'],
   };
 
   const HISTORY_GROUPS = [
     ['all', 'Alle', ''],
     ['problems', 'Probleme', 'crash,oom,unhealthy'],
-    ['restarts', 'Neustarts', 'auto_restart,restart'],
+    ['restarts', 'Neustarts', 'auto_restart,restart,recreate'],
     ['health', 'Healthcheck', 'unhealthy,healthy'],
     ['lifecycle', 'Start & Stopp', 'start,stop,exit'],
   ];
@@ -440,6 +441,8 @@
         h('header', { class: 'page-head' }, shell.title, shell.actions),
         shell.view)),
       h('nav', { class: 'tabbar', 'aria-label': 'Hauptnavigation' }, links('tab'))));
+    // Docker-Status gleich anzeigen, nicht erst beim nächsten Abfrage-Intervall.
+    api('GET', '/api/overview').then((data) => setConnection(data.docker)).catch(() => {});
   }
 
   async function navigate() {
