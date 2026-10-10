@@ -6,9 +6,27 @@
 - **Webinterface** im schlichten Apple-Stil, mit Dark Mode und eigener Ansicht für Mobilgeräte
 - **Login** mit Admin-Konto, Sperre nach Fehlversuchen
 - **Verlauf** mit Filter, Suche, Exit-Code und den letzten Log-Zeilen
-- **Versteht, was passiert ist:** unterscheidet Absturz, automatischen Neustart, manuellen Neustart und gewolltes Stoppen
+- **Versteht, was passiert ist:** unterscheidet Absturz, automatischen Neustart, manuellen Neustart, Redeploy eines Stacks und gewolltes Stoppen
 - **Kein Mail-Sturm:** Sperrzeit pro Container bei Absturzschleifen
 - **Sicher aufgesetzt:** nur lesender Docker-Zugriff über einen Socket-Proxy, SMTP-Passwort verschlüsselt gespeichert
+
+![Übersicht mit Status und den letzten Ereignissen](docs/screenshots/uebersicht.png)
+
+| Verlauf | Details mit Log-Zeilen |
+| --- | --- |
+| ![Verlauf aller Ereignisse](docs/screenshots/verlauf.png) | ![Details zu einem Absturz mit Exit-Code und Log-Zeilen](docs/screenshots/ereignis.png) |
+
+| Container (Dark Mode) | Einstellungen (Dark Mode) |
+| --- | --- |
+| ![Containerliste im Dark Mode](docs/screenshots/container-dunkel.png) | ![SMTP-Einstellungen im Dark Mode](docs/screenshots/einstellungen-dunkel.png) |
+
+<p align="center">
+  <img src="docs/screenshots/mobil-uebersicht-dunkel.png" alt="Übersicht auf dem Smartphone im Dark Mode" width="260">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/mobil-verlauf.png" alt="Verlauf auf dem Smartphone" width="260">
+</p>
+
+<sub>Die Screenshots zeigen Beispieldaten.</sub>
 
 ## Installation in Portainer
 
@@ -39,6 +57,7 @@ docker compose up -d
 | Speicherlimit überschritten | OOM-Kill durch den Kernel | ✅ |
 | Automatisch neu gestartet | Docker startet den Container per Restart-Richtlinie neu | ✅ |
 | Manuell neu gestartet | `docker restart`, Portainer, Compose | ✅ |
+| Neu erstellt | Container wird durch einen neuen ersetzt, z. B. beim Redeploy oder Update eines Stacks | ✅ |
 | Healthcheck fehlgeschlagen | Status wechselt auf „unhealthy“ | ✅ |
 | Wieder gesund | Healthcheck ist nach einem Fehler wieder erfolgreich | ✅ |
 | Gestoppt | Container wurde manuell gestoppt | – |
@@ -155,6 +174,10 @@ docker run --rm -v "$PWD/tests:/srv/tests:ro" docker-mail-notifier python -m uni
 ```
 
 Das Backend ist Python (Starlette, httpx), die Oberfläche kommt ohne Framework und Build-Schritt aus. Bei jedem Push auf `main` baut GitHub Actions das Image und veröffentlicht es auf GHCR.
+
+## Entstehung
+
+Dieses Projekt wurde vollständig mit [Claude Code](https://claude.com/claude-code) erstellt – Code, Oberfläche, Tests und diese Dokumentation.
 
 ## Lizenz
 
